@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run N8N MCP Server",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/python ${workspaceFolder}/src/n8n_mcp_server.py",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Install requirements",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/python -m pip install -r ${workspaceFolder}/requirements.txt",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    }
+  ]
+}

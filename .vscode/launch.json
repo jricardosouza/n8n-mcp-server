@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run N8N MCP Server",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/n8n_mcp_server.py",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    }
+  ]
+}
