@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "n8n-automation": {
+      "command": "C:\\Users\\SeuUsuario\\caminho\\para\\n8n-mcp-server\\venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\Users\\SeuUsuario\\caminho\\para\\n8n-mcp-server\\src\\n8n_mcp_server.py"
+      ],
+      "env": {
+        "N8N_API_URL": "https://sua-instancia.n8n.io/api/v1",
+        "N8N_API_KEY": "sua_chave_api_n8n_aqui"
+      }
+    }
+  }
+}

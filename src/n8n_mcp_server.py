@@ -17,7 +17,13 @@ import logging
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type
+)
 
 # Configuração de logging
 logging.basicConfig(
@@ -40,7 +46,7 @@ mcp = FastMCP("n8n-automation-server")
 
 
 class N8NClient:
-    """Cliente para interação com API do N8N"""
+    """Cliente para interação com API do N8N com retry logic e cache"""
 
     def __init__(self):
         self.base_url = N8N_API_URL.rstrip('/')
@@ -49,31 +55,65 @@ class N8NClient:
             "Content-Type": "application/json"
         }
         self.client = httpx.AsyncClient(timeout=30.0)
+        self._cache: Dict[str, tuple[Any, datetime]] = {}
+        self._cache_ttl = timedelta(minutes=5)
 
     async def close(self):
         """Fechar conexões HTTP"""
         await self.client.aclose()
 
+    def _get_cache(self, key: str) -> Optional[Any]:
+        """Obter valor do cache se ainda válido"""
+        if key in self._cache:
+            value, timestamp = self._cache[key]
+            if datetime.now() - timestamp < self._cache_ttl:
+                logger.debug(f"Cache hit: {key}")
+                return value
+            else:
+                del self._cache[key]
+        return None
+
+    def _set_cache(self, key: str, value: Any):
+        """Armazenar valor no cache"""
+        self._cache[key] = (value, datetime.now())
+        logger.debug(f"Cache set: {key}")
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((httpx.NetworkError, httpx.TimeoutException)),
+        reraise=True
+    )
     async def _make_request(
         self,
         method: str,
         endpoint: str,
+        use_cache: bool = False,
         **kwargs
     ) -> Dict[str, Any]:
         """
-        Método genérico para requisições HTTP
+        Método genérico para requisições HTTP com retry e cache
 
         Args:
             method: Método HTTP (GET, POST, PUT, DELETE)
             endpoint: Endpoint da API (ex: /workflows)
+            use_cache: Se True, usa cache para requisições GET
             **kwargs: Argumentos adicionais para httpx
 
         Returns:
             Resposta JSON da API
         """
+        # Verificar cache para requisições GET
+        cache_key = f"{method}:{endpoint}"
+        if use_cache and method == "GET":
+            cached_result = self._get_cache(cache_key)
+            if cached_result is not None:
+                return cached_result
+
         url = f"{self.base_url}{endpoint}"
 
         try:
+            logger.debug(f"Requisição {method} para {endpoint}")
             response = await self.client.request(
                 method=method,
                 url=url,
@@ -81,18 +121,66 @@ class N8NClient:
                 **kwargs
             )
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+
+            # Armazenar em cache se for GET
+            if use_cache and method == "GET":
+                self._set_cache(cache_key, result)
+
+            return result
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"Erro HTTP {e.response.status_code}: {e.response.text}")
-            raise Exception(f"Falha na requisição à API N8N: {e.response.status_code}")
+            error_detail = e.response.text if hasattr(e.response, 'text') else 'Sem detalhes'
+            logger.error(f"Erro HTTP {e.response.status_code} em {endpoint}: {error_detail}")
+            raise Exception(
+                f"Falha na API N8N ({e.response.status_code}): "
+                f"{error_detail[:100]}"
+            )
+        except httpx.NetworkError as e:
+            logger.error(f"Erro de rede em {endpoint}: {str(e)}")
+            raise Exception(f"Erro de rede ao acessar N8N: Verifique sua conexão")
+        except httpx.TimeoutException:
+            logger.error(f"Timeout em {endpoint}")
+            raise Exception("Timeout ao acessar API N8N: Tente novamente")
         except Exception as e:
-            logger.error(f"Erro na requisição: {str(e)}")
+            logger.error(f"Erro inesperado em {endpoint}: {str(e)}")
             raise
 
 
 # Instância global do cliente
 n8n_client = N8NClient()
+
+
+@mcp.tool()
+async def health_check() -> Dict[str, Any]:
+    """
+    Verifica a conectividade e saúde da conexão com N8N
+
+    Returns:
+        Status da conexão e informações da API
+    """
+    try:
+        start_time = datetime.now()
+        data = await n8n_client._make_request("GET", "/workflows", use_cache=False)
+        response_time = (datetime.now() - start_time).total_seconds()
+
+        workflows = data.get("data", [])
+
+        return {
+            "status": "healthy",
+            "api_url": n8n_client.base_url,
+            "response_time_seconds": round(response_time, 3),
+            "total_workflows": len(workflows),
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "api_url": n8n_client.base_url,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 @mcp.tool()
@@ -107,7 +195,7 @@ async def list_workflows(active_only: bool = False) -> List[Dict[str, Any]]:
         Lista de workflows com id, nome e status
     """
     try:
-        data = await n8n_client._make_request("GET", "/workflows")
+        data = await n8n_client._make_request("GET", "/workflows", use_cache=True)
         workflows = data.get("data", [])
 
         if active_only:
@@ -145,7 +233,11 @@ async def get_workflow_details(workflow_id: str) -> Dict[str, Any]:
         Detalhes completos do workflow incluindo nós e conexões
     """
     try:
-        data = await n8n_client._make_request("GET", f"/workflows/{workflow_id}")
+        data = await n8n_client._make_request(
+            "GET",
+            f"/workflows/{workflow_id}",
+            use_cache=True
+        )
 
         workflow = data.get("data", {})
 
