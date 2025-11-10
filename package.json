@@ -1,0 +1,54 @@
+{
+  "name": "@jricardosouza/n8n-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) server para integração com n8n - Transforme comandos em linguagem natural em automações",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "n8n-mcp-server": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "watch": "tsc --watch",
+    "prepare": "npm run build",
+    "test": "node --test",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "n8n",
+    "automation",
+    "workflow",
+    "ai",
+    "llm",
+    "claude"
+  ],
+  "author": "jricardosouza",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jricardosouza/n8n-mcp-server.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.2",
+    "@typescript-eslint/parser": "^8.18.2",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
