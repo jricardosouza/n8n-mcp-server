@@ -10,6 +10,11 @@ export interface N8nClientConfig {
   password?: string;
   timeout?: number;
   maxRetries?: number;
+  // Network security options
+  validateSsl?: boolean;
+  maxResponseSize?: number; // in bytes
+  maxRequestSize?: number; // in bytes
+  allowedHosts?: string[];
 }
 
 // Workflow

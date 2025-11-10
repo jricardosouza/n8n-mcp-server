@@ -38,6 +38,9 @@ async function main() {
     apiUrl: config.n8n.apiUrl,
     apiKey: config.n8n.apiKey,
     timeout: config.n8n.timeout,
+    validateSsl: config.n8n.validateSsl,
+    maxResponseSize: config.n8n.maxResponseSize,
+    maxRequestSize: config.n8n.maxRequestSize,
   });
 
   // Criar servidor MCP

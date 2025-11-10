@@ -3,7 +3,9 @@
  */
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import https from 'https';
 import { logger } from '../utils/logger.js';
+import { sanitizeUrl, sanitizeHeaders, sanitizeObject } from '../utils/sanitizer.js';
 import type {
   Workflow,
   WorkflowListItem,
@@ -19,6 +21,9 @@ export class N8nClient {
 
   constructor(config: N8nClientConfig) {
     this.config = config;
+    
+    // Validate URL uses HTTPS (except localhost)
+    this.validateApiUrl(config.apiUrl);
 
     // Configurar cliente axios
     this.client = axios.create({
@@ -26,7 +31,19 @@ export class N8nClient {
       timeout: config.timeout || 30000,
       headers: {
         'Content-Type': 'application/json',
+        // Security headers
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
       },
+      // SSL/TLS validation
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: config.validateSsl !== false,
+        minVersion: 'TLSv1.2',
+      }),
+      // Response size limit
+      maxContentLength: config.maxResponseSize || 10 * 1024 * 1024,
+      maxBodyLength: config.maxRequestSize || 5 * 1024 * 1024,
     });
 
     // Adicionar autenticação
@@ -37,30 +54,69 @@ export class N8nClient {
       this.client.defaults.headers.common['Authorization'] = `Basic ${auth}`;
     }
 
-    // Interceptor para logging
+    // Interceptor para logging (with sanitization)
     this.client.interceptors.request.use(
       (config) => {
-        logger.debug(`→ ${config.method?.toUpperCase()} ${config.url}`);
+        const sanitizedUrl = sanitizeUrl(config.url || '');
+        const sanitizedHeaders = sanitizeHeaders(config.headers || {});
+        logger.debug(`→ ${config.method?.toUpperCase()} ${sanitizedUrl}`);
+        logger.debug('Headers:', sanitizedHeaders);
         return config;
       },
       (error) => {
-        logger.error('Erro na requisição:', error);
+        logger.error('Erro na requisição:', sanitizeObject(error));
         return Promise.reject(error);
       }
     );
 
     this.client.interceptors.response.use(
       (response) => {
-        logger.debug(`← ${response.status} ${response.config.url}`);
+        const sanitizedUrl = sanitizeUrl(response.config.url || '');
+        logger.debug(`← ${response.status} ${sanitizedUrl}`);
         return response;
       },
       (error: AxiosError) => {
         const status = error.response?.status || 'unknown';
-        const url = error.config?.url || 'unknown';
+        const url = sanitizeUrl(error.config?.url || 'unknown');
         logger.error(`← ${status} ${url}`, error.message);
         return Promise.reject(error);
       }
     );
+  }
+
+  /**
+   * Validate API URL for security
+   */
+  private validateApiUrl(url: string): void {
+    try {
+      const urlObj = new URL(url);
+      
+      // Allow HTTP only for localhost
+      if (urlObj.protocol === 'http:') {
+        const hostname = urlObj.hostname;
+        if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '[::1]') {
+          logger.warn(
+            '⚠️  WARNING: Using HTTP for non-localhost connection is insecure. ' +
+            'Please use HTTPS for production environments.'
+          );
+        }
+      }
+      
+      // Validate allowed hosts if configured
+      if (this.config.allowedHosts && this.config.allowedHosts.length > 0) {
+        const hostname = urlObj.hostname;
+        if (!this.config.allowedHosts.includes(hostname)) {
+          throw new Error(
+            `Host ${hostname} is not in the allowed hosts list: ${this.config.allowedHosts.join(', ')}`
+          );
+        }
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Invalid API URL: ${error.message}`);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -221,9 +277,19 @@ export class N8nClient {
         return new Error(`${message}: Recurso não encontrado.`);
       } else if (status === 403) {
         return new Error(`${message}: Acesso negado.`);
+      } else if (status === 413) {
+        return new Error(`${message}: Payload muito grande. Verifique MAX_REQUEST_SIZE.`);
+      } else if (error.code === 'ECONNABORTED') {
+        return new Error(`${message}: Timeout na requisição. Verifique REQUEST_TIMEOUT.`);
+      } else if (error.code === 'ERR_BAD_REQUEST' && error.message.includes('maxContentLength')) {
+        return new Error(`${message}: Resposta muito grande. Verifique MAX_RESPONSE_SIZE.`);
       } else if (data?.message) {
         return new Error(`${message}: ${data.message}`);
       }
+      
+      // Sanitize error message for logging
+      const sanitizedError = sanitizeObject(error);
+      logger.debug('Detailed error:', sanitizedError);
       
       return new Error(`${message}: ${error.message}`);
     }
