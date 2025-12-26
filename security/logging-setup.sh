@@ -202,11 +202,14 @@ sudo chmod +x /usr/local/bin/log-analyzer.sh
 # ===== CONFIGURAR CRON PARA ANÁLISES PERIÓDICAS =====
 echo "Configurando tarefas agendadas..."
 
+# Permite configurar o caminho do script de auditoria via variável de ambiente
+SECURITY_AUDIT_SCRIPT_PATH="${SECURITY_AUDIT_SCRIPT_PATH:-/usr/local/bin/security-audit.sh}"
+
 # Análise diária de logs
 (sudo crontab -l 2>/dev/null || true; echo "0 8 * * * /usr/local/bin/log-analyzer.sh > /var/log/security/daily-analysis-\$(date +\%Y\%m\%d).log 2>&1") | sudo crontab -
 
 # Auditoria semanal
-(sudo crontab -l 2>/dev/null || true; echo "0 9 * * 1 /workspaces/n8n-mcp-server/security/security-audit.sh") | sudo crontab -
+(sudo crontab -l 2>/dev/null || true; echo "0 9 * * 1 ${SECURITY_AUDIT_SCRIPT_PATH}") | sudo crontab -
 
 echo "✅ Logging e monitoramento configurados!"
 echo ""

@@ -5,7 +5,7 @@
 
 set -e
 
-SCRIPT_DIR="/workspaces/n8n-mcp-server/security"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" >/dev/null 2>&1 && pwd)"
 LOG_FILE="/tmp/security-setup-$(date +%Y%m%d-%H%M%S).log"
 
 # Cores para output
