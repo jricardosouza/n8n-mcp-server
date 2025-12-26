@@ -87,7 +87,7 @@ class N8NClient:
         self.headers = {
             "X-N8N-API-KEY": N8N_API_KEY,
             "Content-Type": "application/json",
-            "User-Agent": "n8n-mcp-server/2.0.0",
+            "User-Agent": "n8n-mcp-server/2.1.0",
             "Accept": "application/json",
         }
         
