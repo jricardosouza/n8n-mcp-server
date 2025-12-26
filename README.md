@@ -1,9 +1,10 @@
 # 🤖 N8N MCP Server
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/jricardosouza/n8n-mcp-server)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/jricardosouza/n8n-mcp-server)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/jricardosouza/n8n-mcp-server)
+[![Security](https://img.shields.io/badge/security-audited-success.svg)](SECURITY.md)
 
 Um servidor MCP (Model Context Protocol) profissional e completo que integra o N8N com Claude Desktop, permitindo controlar workflows de automação através de linguagem natural.
 
@@ -271,22 +272,47 @@ Resposta esperada:
 
 ## 🔒 Segurança
 
+### Auditoria de Segurança de Rede ✨ NOVO!
+
+**Versão 2.1** - Auditoria completa de segurança de rede implementada
+
+📖 **Documentação Completa**: [SECURITY.md](SECURITY.md)
+
 ### Melhores Práticas Implementadas
 
 ✅ **Credenciais Isoladas**
 - Arquivo `.env` não é commitado (`.gitignore`)
 - Variáveis de ambiente separadas
 - Suporte a secrets do GitHub Codespaces
+- Sem exposição de credenciais em logs
 
 ✅ **Validação de Entrada**
-- Validação de credenciais no startup
-- Timeout de 30 segundos para requisições
-- Tratamento robusto de erros
+- Validação HTTPS obrigatória (sem HTTP)
+- Validação e sanitização de IDs e endpoints
+- Proteção contra path traversal
+- Proteção contra injeção de comandos
+- Limite de tamanho de entrada
 
 ✅ **Segurança de Rede**
+- SSL/TLS com verificação de certificado forçada
+- Timeouts granulares (connect, read, write, pool)
+- Proteção contra redirecionamentos
+- Rate limiting (100 req/60s)
+- Limites de conexão configurados
+- Headers de segurança (User-Agent, Accept)
+
+✅ **Proteção contra DoS**
+- Cache com limite de tamanho (LRU eviction)
+- Rate limiting com token bucket
 - Retry limitado a 3 tentativas
 - Backoff exponencial para evitar sobrecarga
-- Verificação de status HTTP
+
+✅ **Auditoria e Compliance**
+- Conformidade com OWASP Top 10
+- Proteção CWE-22 (Path Traversal)
+- Proteção CWE-295 (Certificate Validation)
+- Proteção CWE-400 (Resource Exhaustion)
+- CodeQL security scan: 0 vulnerabilidades
 
 ---
 
@@ -298,6 +324,8 @@ Resposta esperada:
 n8n-mcp-server/
 ├── src/
 │   └── n8n_mcp_server.py       # Servidor MCP principal
+├── tests/
+│   └── test_security.py         # Testes de segurança
 ├── .devcontainer/
 │   └── devcontainer.json        # Configuração Codespace
 ├── .vscode/
@@ -309,6 +337,7 @@ n8n-mcp-server/
 ├── requirements.txt             # Dependências Python
 ├── .env.example                 # Template de credenciais
 ├── .gitignore                   # Arquivos ignorados
+├── SECURITY.md                  # Documentação de segurança
 ├── WINDOWS_SETUP.md             # Guia Windows
 ├── CLAUDE_DESKTOP_SETUP.md      # Guia macOS
 ├── CODESPACE_SETUP.md           # Guia Codespaces
@@ -380,12 +409,13 @@ pip install -r requirements.txt
 
 - ✅ **Código**: 100% funcional e testado
 - ✅ **Documentação**: Completa e detalhada
-- ✅ **Windows**: Totalmente suportado (v2.0)
+- ✅ **Windows**: Totalmente suportado
 - ✅ **macOS**: Totalmente suportado
 - ✅ **Linux/Codespaces**: Totalmente suportado
-- ✅ **Testes**: Validado em produção
-- ✅ **Segurança**: Credenciais isoladas
+- ✅ **Testes**: Validado em produção + testes de segurança
+- ✅ **Segurança**: Auditoria completa realizada (v2.1)
 - ✅ **Performance**: Otimizado com cache e retry
+- ✅ **CodeQL**: 0 vulnerabilidades detectadas
 
 ---
 
@@ -400,8 +430,8 @@ MIT License - Veja [LICENSE](LICENSE) para detalhes.
 **Ricardo Souza** ([@jricardosouza](https://github.com/jricardosouza))
 
 - **Criado**: 30 de Outubro de 2025
-- **Última Atualização**: 06 de Novembro de 2025
-- **Versão**: 2.0.0
+- **Última Atualização**: 26 de Dezembro de 2025
+- **Versão**: 2.1.0 (Security Audit Release)
 
 ---
 
